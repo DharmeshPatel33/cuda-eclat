@@ -69,8 +69,8 @@ int NumberOfSetBits(int i);
 __global__ void intersect(int *a,int *b,int *c,int size,int *support);
 __device__  int NumberOfSetBits_k(int i);
 
-#define block_dim 1
-#define grid_dim 1
+#define block_dim 16
+#define grid_dim 16
 #define DEBUG 1
 
 
