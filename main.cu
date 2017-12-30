@@ -1,7 +1,7 @@
-/******************
+/*****************************************************
 Frequent itemset mining with CUDA
 
-Yi-Fang Chen (d05921016@ntu.eud.tw)
+Yi-Fang Chen (d05921016@ntu.edu.tw)
   Date: Dec 29, 2017
 
 How to Build:
@@ -13,7 +13,7 @@ How to run:
   ./fim.out retail.txt  0.1 output.txt
 
 
-************************/
+********************************************************/
 
 #include"cuda_runtime.h"
 #include"cuda.h"
@@ -87,13 +87,14 @@ int NumberOfSetBits(int i);
 __global__ void intersect(int *a,int *b,int *c,int size,int *support);
 __device__  int NumberOfSetBits_k(int i);
 
-#define block_dim 16
-#define grid_dim 16
-#define DEBUG 1
 
+#define DEBUG 0
+#define TEST 1
+int grid_dim=16;
+int block_dim=16;
 
 auto out = &cout;
-FILE *fp;
+
 int main(int argc, char** argv){
 
  
@@ -103,9 +104,23 @@ int main(int argc, char** argv){
 	bool gpu = true;
 	char* inFileName = NULL; // the input file name
 	float supPer = 0;// user specified minimun support percentage
+	double time_gpu;
+	double time_cpu;
+	
+	#if TEST
+      // argv4: number of block
+	  grid_dim=atoi(argv[4]);
+	  //argv5: number of thread
+	  block_dim=grid_dim/(atoi(argv[5]));
+	 
+	
+	#else
+	
 	if ( argc != 4){//input argument wrong, print usage, return error;
 		ErrorHandler(ERROR_INPUT);
 	}
+	
+	#endif
 
 	//set arguments
 	inFileName = argv[1];
@@ -115,8 +130,13 @@ int main(int argc, char** argv){
 	ofs.open(argv[3], ofstream::out | ofstream::trunc);
 	out = &ofs;
 	
-	fp=fopen(argv[3],"w+");
+	ofstream ofs1;
+	ofs1.open("log.txt", ofstream::out | ofstream::app);
+	auto fout = &ofs1;
+	
 
+	
+	
 	cout << "inFileName = " << inFileName << endl;
 	cout << "minSup = " << supPer << endl;
 	cout << "grid_dim = " << grid_dim << endl;
@@ -139,13 +159,15 @@ int main(int argc, char** argv){
 	if (gpu){
 		clock_t tGPUMiningStart = clock();
 		mineGPU(root, minSup, index, length);
-		cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
+		time_gpu=(double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC ;
+		cout << "Time on GPU Mining: " << time_gpu << endl;
 	}
 	
 	if (cpu){
 		clock_t tCPUMiningStart = clock();		
 		mineCPU(root, minSup, index, length);
-		cout << "Time on CPU Mining: " << (double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC << endl;
+		time_cpu=(double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC ;
+		cout << "Time on CPU Mining: " << time_cpu << endl;
 	}
 	
 
@@ -157,7 +179,18 @@ int main(int argc, char** argv){
 	delete root;
 	delete index;
 
+	
+	// --write to log for plotting------
+
+	*fout << supPer << " " << grid_dim<< " " << block_dim << " " << time_gpu << " " << time_cpu << endl;
+	
+	
+	//-------------------------------------
+	
+	
+	
 	ofs.close();
+	ofs1.close();
   
   
 
@@ -237,9 +270,11 @@ __global__ void intersect(int *a,int *b,int *c,int size,int *support)
 {
 	// TODO: fill this function to use gpu to accelerate the process of eclat
     
-	__shared__ float cache_result[block_dim];
+	//__shared__ int cache_result[block_dim];
+	extern __shared__ int s[];
+    int *cache_result=s;
 	int temp = 0;
-   
+
 	int tid = threadIdx.x + blockDim.x * blockIdx.x;
 	
 	while (tid < size) {
@@ -327,8 +362,9 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 				  cudaMalloc(&dev_support, grid_dim*sizeof(int));
 				  cudaMemcpy(dev_a, a, size, cudaMemcpyHostToDevice);
 				  cudaMemcpy(dev_b, b, size, cudaMemcpyHostToDevice);
-				 
-				  intersect<<<grid_dim, block_dim>>>(dev_a, dev_b,dev_temp,length,dev_support);
+				  cout <<"0" <<endl;
+				  intersect<<<grid_dim, block_dim,block_dim*sizeof(int)>>>(dev_a, dev_b,dev_temp,length,dev_support);
+				  cout <<"1" <<endl;
 				  
 				  cudaMemcpy(temp, dev_temp, size, cudaMemcpyDeviceToHost);
 				  cudaMemcpy(support_a, dev_support, grid_dim * sizeof(int), cudaMemcpyDeviceToHost);
@@ -371,7 +407,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	}
 	
 
-	#if 1
+	#if 0
 	
 	for (auto item : eClass->items){ 
 		
@@ -420,7 +456,7 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		}
 		delete children;
 	}
-	#if 1
+	#if DEBUG
 
 	for (auto item : eClass->items){ 
 		
