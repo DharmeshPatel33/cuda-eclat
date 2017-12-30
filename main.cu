@@ -111,7 +111,8 @@ int main(int argc, char** argv){
       // argv4: number of block
 	  grid_dim=atoi(argv[4]);
 	  //argv5: number of thread
-	  block_dim=grid_dim/(atoi(argv[5]));
+	  int num_thread=atoi(argv[5]);
+	  block_dim=num_thread/grid_dim;
 	 
 	
 	#else
@@ -182,7 +183,7 @@ int main(int argc, char** argv){
 	
 	// --write to log for plotting------
 
-	*fout << supPer << " " << grid_dim<< " " << block_dim << " " << time_gpu << " " << time_cpu << endl;
+	*fout << supPer << " " << grid_dim<< " " << num_thread << " " << time_gpu << " " << time_cpu << endl;
 	
 	
 	//-------------------------------------
