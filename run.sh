@@ -14,7 +14,7 @@ file='retail.txt'
 for support in 0.0006 0.0007 0.0008 0.0009 0.001 ; do    #support 
 	for grid_dim in 16 32 64 128 ; do    #grid_dim
 		for thread_num in 16 32 64 128 ; do   #block_dim
-			echo "support:$support,grid_dim:$grid_dim,block_dim:$block_dim"
+			echo "support:$support,grid_dim:$grid_dim,thread_num:$thread_num"
 			./fim.out $file $support output.txt $grid_dim $thread_num
 			
 		done
