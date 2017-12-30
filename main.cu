@@ -1,3 +1,20 @@
+/******************
+Frequent itemset mining with CUDA
+
+Yi-Fang Chen (d05921016@ntu.eud.tw)
+  Date: Dec 29, 2017
+
+How to Build:
+  nvcc main.cu -o fim.out --std=c++11
+
+How to run: 
+  executable_name data_file min_sup out_file
+  Example:
+  ./fim.out retail.txt  0.1 output.txt
+
+
+************************/
+
 #include"cuda_runtime.h"
 #include"cuda.h"
 #include"cuda_runtime_api.h"
@@ -14,6 +31,7 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 
+char outbuf[100000];
 
 int THREADNUM = 1024;
 int BLOCKNUM = 20;
@@ -44,7 +62,7 @@ struct EClass{
 	vector<int> parents;
 };
 
-
+ 
 const unsigned int Bit32Table[32] =
 {
 	2147483648UL, 1073741824UL, 536870912UL, 268435456UL,
@@ -75,7 +93,7 @@ __device__  int NumberOfSetBits_k(int i);
 
 
 auto out = &cout;
-
+FILE *fp;
 int main(int argc, char** argv){
 
  
@@ -96,6 +114,8 @@ int main(int argc, char** argv){
     ofstream ofs;
 	ofs.open(argv[3], ofstream::out | ofstream::trunc);
 	out = &ofs;
+	
+	fp=fopen(argv[3],"w+");
 
 	cout << "inFileName = " << inFileName << endl;
 	cout << "minSup = " << supPer << endl;
@@ -116,25 +136,31 @@ int main(int argc, char** argv){
 	int minSup = tNumbers * supPer + 1;
 
 	
-	
 	if (gpu){
 		clock_t tGPUMiningStart = clock();
 		mineGPU(root, minSup, index, length);
 		cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
 	}
+	
 	if (cpu){
-		clock_t tCPUMiningStart = clock();
+		clock_t tCPUMiningStart = clock();		
 		mineCPU(root, minSup, index, length);
 		cout << "Time on CPU Mining: " << (double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC << endl;
 	}
+	
+
+
 	
 	for (auto item : root->items){
 		delete[] item.db;
 	}
 	delete root;
 	delete index;
+
 	ofs.close();
-  // ofs.flush();
+  
+  
+
 	cudaDeviceSynchronize();
 	return 0;
 }
@@ -213,7 +239,7 @@ __global__ void intersect(int *a,int *b,int *c,int size,int *support)
     
 	__shared__ float cache_result[block_dim];
 	int temp = 0;
-
+   
 	int tid = threadIdx.x + blockDim.x * blockIdx.x;
 	
 	while (tid < size) {
@@ -272,11 +298,12 @@ __device__  int NumberOfSetBits_k(int i)
 */
 
 //////////////////////////////////////////////////////////////////////////
- 
+unsigned long len=0;
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	int size = eClass->items.size();
-	 printf("length=%d\n",length);
+
+	
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
 		children->parents = eClass->parents;
@@ -287,7 +314,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 			int *b = eClass->items[j].db;
 			int support = 0;
 			
-			#if 1
+			#if 0
 			{ 	 // intersect in GPU
 				   
 	              int *dev_a,*dev_b,*dev_temp,*dev_support;
@@ -321,6 +348,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 				  
 				 
 			}
+		
 			#else 
 				 //intersect in CPU
 			 for (int k = 0; k < length; k++){
@@ -335,23 +363,27 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 			else delete[] temp;
 		}
 		if (children->items.size() != 0)
-			mineCPU(children, minSup, index, length);
+			mineGPU(children, minSup, index, length);
 		for (auto item : children->items){
 			delete[] item.db;
 		}
 		delete children;
 	}
+	
+
 	#if 1
+	
 	for (auto item : eClass->items){ 
-
+		
 		for (auto i : eClass->parents) {
-
-			cout << index[i] << " ";
-			
+			*out << index[i] << " ";
 		}
-		cout << index[item.id] << "(" << item.support << ")" << endl;
-	    
-	} 
+
+		 *out << index[item.id] << "(" << item.support << ")" << endl;
+
+		 
+	
+	}
 	#endif
 }
 
@@ -389,7 +421,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		delete children;
 	}
 	#if 1
-	for (auto item : eClass->items){ //doing print till parent
+
+	for (auto item : eClass->items){ 
 		
 		for (auto i : eClass->parents) {
 			cout << index[i] << " ";
