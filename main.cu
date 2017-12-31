@@ -12,6 +12,9 @@ How to run:
   Example:
   ./fim.out retail.txt  0.1 output.txt
 
+  <TEST version>
+  
+   ./fim.out retail.txt  0.1 output.txt  num_block num_thread
 
 ********************************************************/
 
@@ -88,11 +91,20 @@ __global__ void intersect(int *a,int *b,int *c,int size,int *support);
 __device__  int NumberOfSetBits_k(int i);
 
 
-#define DEBUG 0
-#define TEST 1
+#define DEBUG 1
+#define DYNAMIC 1
+
+
+
+#if DYNAMIC
+
 int grid_dim=16;
 int block_dim=16;
-
+#else
+ #define grid_dim 16
+ #define num_thread 16
+ #define block_dim ((((num_thread)+(grid_dim)-1))/(grid_dim))
+#endif
 auto out = &cout;
 
 int main(int argc, char** argv){
@@ -107,12 +119,19 @@ int main(int argc, char** argv){
 	double time_gpu;
 	double time_cpu;
 	
-	#if TEST
+	#if DYNAMIC
+	   if ( argc != 6){
+		   
+		   printf("input argument wrong, return error;\n");
+		   return 0;
+	
+	   }
       // argv4: number of block
 	  grid_dim=atoi(argv[4]);
 	  //argv5: number of thread
 	  int num_thread=atoi(argv[5]);
-	  block_dim=num_thread/grid_dim;
+	  block_dim=(num_thread+grid_dim-1)/grid_dim;
+
 	 
 	
 	#else
@@ -270,10 +289,13 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 __global__ void intersect(int *a,int *b,int *c,int size,int *support)
 {
 	// TODO: fill this function to use gpu to accelerate the process of eclat
-    
-	//__shared__ int cache_result[block_dim];
-	extern __shared__ int s[];
-    int *cache_result=s;
+    #if DYNAMIC
+	  	extern __shared__ int s[];
+        int *cache_result=s;
+	#else 
+    __shared__ int cache_result[block_dim];
+    #endif
+	
 	int temp = 0;
 
 	int tid = threadIdx.x + blockDim.x * blockIdx.x;
@@ -350,7 +372,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 			int *b = eClass->items[j].db;
 			int support = 0;
 			
-			#if 0
+			#if 1
 			{ 	 // intersect in GPU
 				   
 	              int *dev_a,*dev_b,*dev_temp,*dev_support;
@@ -363,10 +385,11 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 				  cudaMalloc(&dev_support, grid_dim*sizeof(int));
 				  cudaMemcpy(dev_a, a, size, cudaMemcpyHostToDevice);
 				  cudaMemcpy(dev_b, b, size, cudaMemcpyHostToDevice);
-				  cout <<"0" <<endl;
-				  intersect<<<grid_dim, block_dim,block_dim*sizeof(int)>>>(dev_a, dev_b,dev_temp,length,dev_support);
-				  cout <<"1" <<endl;
-				  
+				  #if DYNAMIC
+				   intersect<<<grid_dim, block_dim,block_dim*sizeof(int)>>>(dev_a, dev_b,dev_temp,length,dev_support);
+				  #else 
+				  intersect<<<grid_dim, block_dim>>>(dev_a, dev_b,dev_temp,length,dev_support);
+				  #endif
 				  cudaMemcpy(temp, dev_temp, size, cudaMemcpyDeviceToHost);
 				  cudaMemcpy(support_a, dev_support, grid_dim * sizeof(int), cudaMemcpyDeviceToHost);
 				  
@@ -408,15 +431,17 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	}
 	
 
-	#if 0
+	#if 1
 	
 	for (auto item : eClass->items){ 
 		
 		for (auto i : eClass->parents) {
-			*out << index[i] << " ";
+		//	*out << index[i] << " ";
+			cout << index[i] << " ";
 		}
 
-		 *out << index[item.id] << "(" << item.support << ")" << endl;
+		// *out << index[item.id] << "(" << item.support << ")" << endl;
+		 cout << index[item.id] << "(" << item.support << ")" << endl;
 
 		 
 	
