@@ -34,8 +34,6 @@ How to run:
 #include "device_launch_parameters.h"
 #include <stdio.h>
 
-char outbuf[100000];
-
 int THREADNUM = 1024;
 int BLOCKNUM = 20;
 
@@ -91,8 +89,8 @@ __global__ void intersect(int *a,int *b,int *c,int size,int *support);
 __device__  int NumberOfSetBits_k(int i);
 
 
-#define DEBUG 1
-#define DYNAMIC 1
+#define DEBUG 0
+#define DYNAMIC 0
 
 
 
@@ -174,7 +172,13 @@ int main(int argc, char** argv){
 	int length = tNumbers + SIZE_OF_INT - (tNumbers%SIZE_OF_INT);
 	length /= SIZE_OF_INT;
 	int minSup = tNumbers * supPer + 1;
-
+	if (cpu){
+		clock_t tCPUMiningStart = clock();		
+		mineCPU(root, minSup, index, length);
+		time_cpu=(double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC ;
+		cout << "Time on CPU Mining: " << time_cpu << endl;
+	}
+	
 	
 	if (gpu){
 		clock_t tGPUMiningStart = clock();
@@ -183,13 +187,7 @@ int main(int argc, char** argv){
 		cout << "Time on GPU Mining: " << time_gpu << endl;
 	}
 	
-	if (cpu){
-		clock_t tCPUMiningStart = clock();		
-		mineCPU(root, minSup, index, length);
-		time_cpu=(double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC ;
-		cout << "Time on CPU Mining: " << time_cpu << endl;
-	}
-	
+
 
 
 	
@@ -360,7 +358,7 @@ unsigned long len=0;
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	int size = eClass->items.size();
-
+    //cout << size << endl;
 	
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
@@ -436,12 +434,12 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	for (auto item : eClass->items){ 
 		
 		for (auto i : eClass->parents) {
-		//	*out << index[i] << " ";
-			cout << index[i] << " ";
+			*out << index[i] << " ";
+			//cout << index[i] << " ";
 		}
 
-		// *out << index[item.id] << "(" << item.support << ")" << endl;
-		 cout << index[item.id] << "(" << item.support << ")" << endl;
+		 *out << index[item.id] << "(" << item.support << ")" << endl;
+		 //cout << index[item.id] << "(" << item.support << ")" << endl;
 
 		 
 	
@@ -456,7 +454,7 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 	
 	
 	int size = eClass->items.size();
-	
+	// cout <<"mineCPU" << size << endl;
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
 		children->parents = eClass->parents;

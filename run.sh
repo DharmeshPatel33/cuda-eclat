@@ -11,12 +11,33 @@ file='retail.txt'
 
 #./fim.out retail.txt 0.01 output.txt $grid_dim $block_dim
 
-for support in 0.0006 0.0007 0.0008 0.0009 0.001 ; do    #support 
-	for grid_dim in 16 32 64 128 ; do    #grid_dim
-		for thread_num in 16 32 64 128 ; do   #block_dim
-			echo "support:$support,grid_dim:$grid_dim,thread_num:$thread_num"
+
+
+
+#verify grid_dim
+
+support=0.01
+thread_num=256
+for grid_dim in 16 32 64 128 256; do    
 			./fim.out $file $support output.txt $grid_dim $thread_num
-			
-		done
-	done
+done
+
+
+
+#verify thread_num 
+
+support=0.01
+grid_dim=8
+
+for thread_num in  16 32 64 128 256; do    
+			./fim.out $file $support output.txt $grid_dim $thread_num
+done
+
+#verify support 
+
+grid_dim=8
+thread_num=256
+
+for support in 0.0006 0.0007 0.0008 0.0009 0.001 ; do    
+			./fim.out $file $support output.txt $grid_dim $thread_num
 done
